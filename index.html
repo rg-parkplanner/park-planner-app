@@ -50,7 +50,9 @@ a { color: var(--accent); }
 <script>
 (async function () {
   const tg = window.Telegram && window.Telegram.WebApp;
-  const inTelegram = !!(tg && tg.initData);
+  // initData is empty when a Mini App is opened from a keyboard button (our "Open planner"), so detect
+  // Telegram by its platform instead; sendData works there.
+  const inTelegram = !!(tg && tg.platform && tg.platform !== "unknown");
   if (inTelegram) { document.documentElement.setAttribute("data-tg", ""); tg.ready(); tg.expand(); }
   const app = document.getElementById("app");
   const el = (tag, attrs = {}, text) => {
