@@ -59,7 +59,19 @@ a { color: var(--accent); }
     if (text != null) n.textContent = text;
     return n;
   };
-  const fail = (msg) => { app.replaceChildren(el("div", { class: "card" }, msg)); };
+  const fail = (msg, details) => {
+    const card = el("div", { class: "card" }, msg);
+    if (details && inTelegram) {  // lets the owner see what this phone actually received
+      const b = el("button", {}, "Send details to bot");
+      b.onclick = () => tg.sendData("pagedebug " + details);
+      card.append(b);
+    }
+    app.replaceChildren(card);
+  };
+  const raw = window.__planHash || "";
+  const details = () => [`len=${raw.length}`, `head=${raw.slice(0, 24)}`, `p=${raw.indexOf("p=")}`,
+    `tgParams=${raw.includes("tgWebApp")}`, `nowHash=${location.hash.length}`, `search=${location.search}`,
+    `ds=${typeof DecompressionStream}`, `tg=${tg ? tg.version + "/" + tg.platform : "none"}`].join(" ");
 
   // The plan is "p" in the URL fragment; Telegram appends its own launch parameters (&tgWebAppData=...).
   function readPayload(hash) {
@@ -86,11 +98,11 @@ a { color: var(--accent); }
     return JSON.parse(await inflateRaw(bytes));
   }
   const frag = readPayload(window.__planHash || location.hash);
-  if (!frag) return fail("Open this page from the planner bot's button: it carries your current plan.");
+  if (!frag) return fail("Open this page from the planner bot's button: it carries your current plan.", details());
   let D;
   try { D = await decode(frag); } catch (e) {
     return fail(`Couldn't read the plan in this link (${e && e.message ? e.message : e}; ${frag.length} chars). ` +
-                "Send plan to the bot for a fresh one.");
+                "Send plan to the bot for a fresh one.", details() + ` err=${e && e.message ? e.message : e}`);
   }
 
   const R = D.rides;  // [name, lat, lon, wait, state, flags]
