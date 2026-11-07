@@ -130,8 +130,24 @@ a { color: var(--accent); }
   }
   const target = D.next != null ? R[D.next] : null;
   if (target) {
-    const a = el("a", { href: `https://www.google.com/maps/dir/?api=1&destination=${target[1]},${target[2]}&travelmode=walking` },
-                 `Walking directions to ${target[0]}`);
+    // Directions on the page itself: maps-app links (Google Maps) redirect to an app scheme that
+    // Telegram's in-app browser can't open (ERR_UNKNOWN_URL_SCHEME).
+    const from = D.at != null ? R[D.at] : null;
+    if (from && from !== target) {
+      const rad = Math.PI / 180, dLat = (target[1] - from[1]) * rad, dLon = (target[2] - from[2]) * rad;
+      const h = Math.sin(dLat / 2) ** 2 + Math.cos(from[1] * rad) * Math.cos(target[1] * rad) * Math.sin(dLon / 2) ** 2;
+      const m = 2 * 6371000 * Math.asin(Math.sqrt(h));
+      const mins = Math.round(2 + m * 1.4 / 55);  // the planner's pace with a 5-year-old, path detours included
+      const y = Math.sin(dLon) * Math.cos(target[1] * rad);
+      const x = Math.cos(from[1] * rad) * Math.sin(target[1] * rad) - Math.sin(from[1] * rad) * Math.cos(target[1] * rad) * Math.cos(dLon);
+      const dir = ["north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest"][
+        Math.round(((Math.atan2(y, x) / rad + 360) % 360) / 45) % 8];
+      plan.append(el("div", {}, `To ${target[0]}: about ${Math.round(m / 10) * 10} m, ${mins} min walk, ${dir} of ${from[0]}.`));
+    }
+    const route = from && from !== target
+      ? `https://www.openstreetmap.org/directions?engine=fossgis_osrm_foot&route=${from[1]}%2C${from[2]}%3B${target[1]}%2C${target[2]}`
+      : `https://www.openstreetmap.org/?mlat=${target[1]}&mlon=${target[2]}#map=19/${target[1]}/${target[2]}`;
+    const a = el("a", { href: route, target: "_blank", rel: "noopener" }, `Walking map to ${target[0]}`);
     a.onclick = (ev) => { if (inTelegram) { ev.preventDefault(); tg.openLink(a.href); } };
     plan.append(a);
   }
