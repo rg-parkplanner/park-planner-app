@@ -6,6 +6,8 @@
 <title>Park planner</title>
 <script>window.__planHash = location.hash;  // before Telegram's script, which reads and may rewrite the hash</script>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
 /* Telegram Mini App for the parkcollector day-of planner. Static: the plan arrives in the URL
    fragment (never sent to this host) and choices go back to the bot via WebApp.sendData. */
@@ -30,7 +32,7 @@ body { margin: 0; background: var(--bg); color: var(--fg); }
 .next { font-size: 17px; font-weight: 600; }
 ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
 .warn { color: var(--hi); font-size: 13px; }
-svg { width: 100%; height: auto; display: block; touch-action: manipulation; }
+svg.dotmap { width: 100%; height: auto; display: block; touch-action: manipulation; }  /* not Leaflet's svg */
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 select, input[type=time] { font: inherit; padding: 8px; border-radius: 8px; border: 1px solid var(--muted);
   background: var(--bg); color: var(--fg); min-width: 0; }
@@ -42,6 +44,10 @@ button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); o
 .legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
 #out { font-size: 13px; color: var(--muted); word-break: break-word; }
+#map { height: 340px; border-radius: 10px; z-index: 0; }
+.dark #map .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9); }
+.leaflet-tooltip.lbl { font: 600 11px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  padding: 2px 6px; border-radius: 6px; }
 a { color: var(--accent); }
 </style>
 </head>
@@ -172,6 +178,7 @@ a { color: var(--accent); }
   const NS = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("class", "dotmap");
   svg.setAttribute("role", "img"); svg.setAttribute("aria-label", "Map of rides: color shows the wait now");
   const sv = (tag, attrs) => { const n = document.createElementNS(NS, tag); for (const [a, v] of Object.entries(attrs)) n.setAttribute(a, v); return n; };
   if (D.at != null && target) {
@@ -200,13 +207,14 @@ a { color: var(--accent); }
     svg.append(lt);
   });
   const mapCard = el("div", { class: "card" });
+  const mapDiv = el("div", { id: "map", role: "img", "aria-label": "Map of rides: color shows the wait now" });
   const legend = el("div", { class: "legend" });
   [["var(--lo)", "under 20 min"], ["var(--mid)", "20–39"], ["var(--hi)", "40+"], ["var(--off)", "closed / down"],
    ["hollow", "no posted wait or done"]]
     .forEach(([c, t]) => { const sp = el("span");
       sp.append(el("i", { style: c === "hollow" ? "border:1.5px solid var(--muted);width:7px;height:7px" : `background:${c}` }),
                 document.createTextNode(t)); legend.append(sp); });
-  mapCard.append(svg, legend);
+  mapCard.append(window.L ? mapDiv : svg, legend);  // OpenStreetMap when Leaflet loaded, else the dot map
 
   // what did you just do?
   const act = el("div", { class: "card" });
@@ -235,6 +243,33 @@ a { color: var(--accent); }
   pick.onchange = () => { out.textContent = pick.value === "" ? "" : desc(R[Number(pick.value)]); };
 
   app.replaceChildren(head, plan, mapCard, act);
+
+  // OpenStreetMap base map (Leaflet), drawn once the container is in the page so it has a size
+  if (window.L) {
+    const css = getComputedStyle(document.documentElement);
+    const col = (r) => { const v = color(r).match(/var\((--[a-z]+)\)/); return v ? css.getPropertyValue(v[1]).trim() : "#888"; };
+    const dark = inTelegram ? tg.colorScheme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    if (dark) document.documentElement.classList.add("dark");
+    const map = L.map(mapDiv, { zoomControl: true, attributionControl: true, tap: true });
+    map.fitBounds(R.map((r) => [r[1], r[2]]), { padding: [18, 18] });  // a view first, then the layers
+    if (target) map.setView([target[1], target[2]], Math.max(map.getZoom(), 17));  // start near the next ride
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(map);
+    const bg = css.getPropertyValue("--bg").trim() || "#fff", fg = css.getPropertyValue("--fg").trim() || "#000";
+    if (D.at != null && target) L.polyline([[R[D.at][1], R[D.at][2]], [target[1], target[2]]],
+      { color: css.getPropertyValue("--accent").trim(), weight: 3, dashArray: "6 6" }).addTo(map);
+    R.forEach((r, i) => {
+      const big = i === D.next || i === D.at || i === D.book;
+      const hollow = r[5].includes("d") || (r[4] === "O" && r[3] == null);
+      const m = L.circleMarker([r[1], r[2]], { radius: big ? 9 : 7, weight: big ? 3 : 2,
+        color: big ? fg : col(r), fillColor: hollow ? bg : col(r), fillOpacity: 1 }).addTo(map);
+      m.bindPopup(desc(r));
+      m.on("click", () => { pick.value = String(i); pick.dispatchEvent(new Event("change")); });
+      if (big) m.bindTooltip((i === D.next ? "Next: " : i === D.at ? "You: " : "Book: ") + r[0],
+                             { permanent: true, direction: "top", offset: [0, -8], className: "lbl" });
+    });
+    setTimeout(() => map.invalidateSize(), 250);  // Telegram can resize the page as it expands
+  }
 })();
 </script>
 </body>
