@@ -144,10 +144,16 @@ a { color: var(--accent); }
         Math.round(((Math.atan2(y, x) / rad + 360) % 360) / 45) % 8];
       plan.append(el("div", {}, `To ${target[0]}: about ${Math.round(m / 10) * 10} m, ${mins} min walk, ${dir} of ${from[0]}.`));
     }
-    const route = from && from !== target
-      ? `https://www.openstreetmap.org/directions?engine=fossgis_osrm_foot&route=${from[1]}%2C${from[2]}%3B${target[1]}%2C${target[2]}`
-      : `https://www.openstreetmap.org/?mlat=${target[1]}&mlon=${target[2]}#map=19/${target[1]}/${target[2]}`;
-    const a = el("a", { href: route, target: "_blank", rel: "noopener" }, `Walking map to ${target[0]}`);
+    // Google Maps: in Telegram the bot sends a location pin (Telegram's map hands off to Google
+    // Maps natively); a plain link would open in Telegram's in-app browser, which can't hand off.
+    const gmaps = `https://www.google.com/maps/dir/?api=1&destination=${target[1]},${target[2]}&travelmode=walking`;
+    const row = el("div", { class: "row" });
+    const go = el("button", {}, `Directions in Google Maps`);
+    go.onclick = () => { if (inTelegram) tg.sendData(`where ${target[0]}`); else location.href = gmaps; };
+    row.append(go);
+    plan.append(row);
+    const a = el("a", { href: gmaps, target: "_blank", rel: "noopener", class: "sub" },
+                 "Or open the Google Maps link (needs Telegram's in-app browser off)");
     a.onclick = (ev) => { if (inTelegram) { ev.preventDefault(); tg.openLink(a.href); } };
     plan.append(a);
   }
