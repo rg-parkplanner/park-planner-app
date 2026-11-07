@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Park planner</title>
+<script>window.__planHash = location.hash;  // before Telegram's script, which reads and may rewrite the hash</script>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 /* Telegram Mini App for the parkcollector day-of planner. Static: the plan arrives in the URL
@@ -60,16 +61,37 @@ a { color: var(--accent); }
   };
   const fail = (msg) => { app.replaceChildren(el("div", { class: "card" }, msg)); };
 
+  // The plan is "p" in the URL fragment; Telegram appends its own launch parameters (&tgWebAppData=...).
+  function readPayload(hash) {
+    const h = (hash || "").replace(/^#/, "");
+    const p = new URLSearchParams(h).get("p");
+    return p || (h && !h.includes("=") ? h.split("&")[0] : "");
+  }
+  async function inflateRaw(bytes) {
+    if (typeof DecompressionStream !== "undefined") {
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+      return await new Response(stream).text();
+    }
+    if (!window.pako) await new Promise((ok, bad) => {  // older phone browsers: a small inflate library
+      const sc = document.createElement("script");
+      sc.src = "https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako_inflate.min.js";
+      sc.onload = ok; sc.onerror = () => bad(new Error("couldn't load the decompressor"));
+      document.head.append(sc);
+    });
+    return window.pako.inflateRaw(bytes, { to: "string" });
+  }
   async function decode(frag) {
     const b64 = frag.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((frag.length + 3) % 4);
     const bytes = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
-    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
-    return JSON.parse(await new Response(stream).text());
+    return JSON.parse(await inflateRaw(bytes));
   }
-  const frag = location.hash.slice(1);
+  const frag = readPayload(window.__planHash || location.hash);
   if (!frag) return fail("Open this page from the planner bot's button: it carries your current plan.");
   let D;
-  try { D = await decode(frag); } catch (e) { return fail("Couldn't read the plan in this link. Send plan to the bot for a fresh one."); }
+  try { D = await decode(frag); } catch (e) {
+    return fail(`Couldn't read the plan in this link (${e && e.message ? e.message : e}; ${frag.length} chars). ` +
+                "Send plan to the bot for a fresh one.");
+  }
 
   const R = D.rides;  // [name, lat, lon, wait, state, flags]
   const send = (cmd) => {
