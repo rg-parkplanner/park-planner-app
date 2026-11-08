@@ -54,6 +54,22 @@ input[type=date] { font: inherit; padding: 8px; border-radius: 8px; border: 1px 
   background: var(--bg); color: var(--fg); min-width: 0; flex: 1 1 9em; }
 .maplibregl-map { position: relative; overflow: hidden; }
 .maplibregl-marker, .maplibregl-popup { position: absolute; top: 0; left: 0; will-change: transform; }  /* MapLibre's own CSS, again: dots must not depend on unpkg */
+.maplibregl-popup { display: flex; pointer-events: none; }  /* popups in the page's colors (light text on */
+.maplibregl-popup-content { background: var(--bg); color: var(--fg); pointer-events: auto;  /* MapLibre's white was unreadable) */
+  font: 600 13px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  padding: 6px 10px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+.maplibregl-popup-tip { width: 0; height: 0; border: 8px solid transparent; z-index: 1; }
+.maplibregl-popup-anchor-bottom, .maplibregl-popup-anchor-bottom-left, .maplibregl-popup-anchor-bottom-right { flex-direction: column-reverse; }
+.maplibregl-popup-anchor-top, .maplibregl-popup-anchor-top-left, .maplibregl-popup-anchor-top-right { flex-direction: column; }
+.maplibregl-popup-anchor-left { flex-direction: row; } .maplibregl-popup-anchor-right { flex-direction: row-reverse; }
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip { align-self: center; border-bottom: none; border-top-color: var(--bg); }
+.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip { align-self: flex-start; border-bottom: none; border-left: none; border-top-color: var(--bg); }
+.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip { align-self: flex-end; border-bottom: none; border-right: none; border-top-color: var(--bg); }
+.maplibregl-popup-anchor-top .maplibregl-popup-tip { align-self: center; border-top: none; border-bottom-color: var(--bg); }
+.maplibregl-popup-anchor-top-left .maplibregl-popup-tip { align-self: flex-start; border-top: none; border-left: none; border-bottom-color: var(--bg); }
+.maplibregl-popup-anchor-top-right .maplibregl-popup-tip { align-self: flex-end; border-top: none; border-right: none; border-bottom-color: var(--bg); }
+.maplibregl-popup-anchor-left .maplibregl-popup-tip { align-self: center; border-left: none; border-right-color: var(--bg); }
+.maplibregl-popup-anchor-right .maplibregl-popup-tip { align-self: center; border-right: none; border-left-color: var(--bg); }
 .pin { border-radius: 50%; box-sizing: border-box; cursor: pointer; }
 .pin .lbl, .num { font: 600 11px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 .pin .lbl { position: absolute; bottom: 140%; left: 50%; transform: translateX(-50%); white-space: nowrap;
@@ -267,7 +283,7 @@ a { color: var(--accent); }
         pts.forEach((x, i) => {
           const d = el("div", { class: "num", style: `background:${x[1] === "L" ? "#2e9b5e" : "#2f6fde"}` }, String(i + 1));
           new maplibregl.Marker({ element: d }).setLngLat([x[5], x[4]])
-            .setPopup(new maplibregl.Popup({ offset: 12, closeButton: false }).setText(`${i + 1}. ${x[0]} ${x[2]}`)).addTo(m);
+            .setPopup(new maplibregl.Popup({ offset: 12, closeButton: false, maxWidth: "200px" }).setText(`${i + 1}. ${x[0]} ${x[2]}`)).addTo(m);
         });
       } catch (err) { imapDiv.parentNode.remove(); }  // no WebGL: the list above is the itinerary
     }
@@ -424,7 +440,7 @@ a { color: var(--accent); }
         if (big) d.append(el("span", { class: "lbl" }, (i === D.next ? "Next: " : i === D.at ? "You: " : "Book: ") + r[0]));
         d.addEventListener("click", () => { pick.value = String(i); pick.dispatchEvent(new Event("change")); });
         new maplibregl.Marker({ element: d }).setLngLat([r[2], r[1]])
-          .setPopup(new maplibregl.Popup({ offset: 10, closeButton: false }).setText(desc(r))).addTo(map);  // text, never HTML
+          .setPopup(new maplibregl.Popup({ offset: 10, closeButton: false, maxWidth: "200px" }).setText(desc(r))).addTo(map);  // text, never HTML
       });
     } catch (err) { mapDiv.replaceWith(svg); }  // no WebGL: the dot map
   }
