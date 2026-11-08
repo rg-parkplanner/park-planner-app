@@ -52,7 +52,7 @@ button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); o
 .chip { font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 9px; color: #fff; white-space: nowrap; }
 input[type=date] { font: inherit; padding: 8px; border-radius: 8px; border: 1px solid var(--muted);
   background: var(--bg); color: var(--fg); min-width: 0; flex: 1 1 9em; }
-.dark .maplibregl-canvas { filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9); }
+.dark .maplibregl-canvas { filter: brightness(0.85); }
 .pin { border-radius: 50%; box-sizing: border-box; cursor: pointer; position: relative; }
 .pin .lbl, .num { font: 600 11px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 .pin .lbl { position: absolute; bottom: 140%; left: 50%; transform: translateX(-50%); white-space: nowrap;
@@ -150,7 +150,7 @@ a { color: var(--accent); }
     return card;
   }
 
-  // Base map: OpenFreeMap's minimal Positron style (OpenStreetMap data, MapLibre; free, no key).
+  // Base map: OpenFreeMap's default Liberty style (OpenStreetMap data, MapLibre; free, no key).
   // The on-map credit is hidden on purpose (private, personal page). Credit: OpenFreeMap,
   // (c) OpenMapTiles, data (c) OpenStreetMap contributors.
   const isDark = () => inTelegram ? tg.colorScheme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
@@ -158,7 +158,7 @@ a { color: var(--accent); }
   function newMap(div, pts, pad = 24) {  // pts: [[lat, lon], ...] to frame
     if (isDark()) document.documentElement.classList.add("dark");
     const lons = pts.map((x) => x[1]), lats = pts.map((x) => x[0]);
-    const m = new maplibregl.Map({ container: div, style: "https://tiles.openfreemap.org/styles/positron",
+    const m = new maplibregl.Map({ container: div, style: "https://tiles.openfreemap.org/styles/liberty",
       bounds: [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
       fitBoundsOptions: { padding: pad }, attributionControl: false, dragRotate: false, pitchWithRotate: false });
     m.touchZoomRotate.disableRotation();
