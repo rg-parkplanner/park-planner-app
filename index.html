@@ -152,18 +152,18 @@ a { color: var(--accent); }
         Math.round(((Math.atan2(y, x) / rad + 360) % 360) / 45) % 8];
       plan.append(el("div", {}, `To ${target[0]}: about ${Math.round(m / 10) * 10} m, ${mins} min walk, ${dir} of ${from[0]}.`));
     }
-    // Google Maps: in Telegram the bot sends a location pin (Telegram's map hands off to Google
-    // Maps natively); a plain link would open in Telegram's in-app browser, which can't hand off.
+    // Google Maps. Default: open the walking route directly (hands off to the Maps app when
+    // Telegram opens links outside its in-app browser). Second: the bot sends a location pin,
+    // whose map hands off to Google Maps even with the in-app browser on.
     const gmaps = `https://www.google.com/maps/dir/?api=1&destination=${target[1]},${target[2]}&travelmode=walking`;
-    const row = el("div", { class: "row" });
-    const go = el("button", {}, `Directions in Google Maps`);
-    go.onclick = () => { if (inTelegram) tg.sendData(`where ${target[0]}`); else location.href = gmaps; };
-    row.append(go);
-    plan.append(row);
-    const a = el("a", { href: gmaps, target: "_blank", rel: "noopener", class: "sub" },
-                 "Or open the Google Maps link (needs Telegram's in-app browser off)");
-    a.onclick = (ev) => { if (inTelegram) { ev.preventDefault(); tg.openLink(a.href); } };
-    plan.append(a);
+    const open = el("button", {}, "Open in Google Maps");
+    open.onclick = () => { if (inTelegram) tg.openLink(gmaps); else window.open(gmaps, "_blank", "noopener"); };
+    const pin = el("button", { class: "ghost" }, "Directions in Google Maps");
+    pin.onclick = () => { if (inTelegram) tg.sendData(`where ${target[0]}`); else location.href = gmaps; };
+    const r1 = el("div", { class: "row" }), r2 = el("div", { class: "row" });
+    r1.append(open); r2.append(pin);
+    plan.append(r1, r2, el("div", { class: "sub" },
+      "Directions sends a map pin to the chat: tap it, then Directions. Use it if Open shows an error."));
   }
   if (D.held.length) plan.append(el("div", { class: "sub" }, "Holding: " + D.held.map((h) => `${R[h[0]][0]} ${h[1]}–${h[2]}`).join("; ")));
   if (D.nb) plan.append(el("div", { class: "sub" }, `Next Multi Pass booking opens ${D.nb}${D.held.length ? ", or when you tap in" : ""}.`));
