@@ -302,7 +302,7 @@ a { color: var(--accent); }
 
   // header + plan
   const head = el("div", { class: "head" });
-  head.append(el("b", {}, { DL: "Disneyland Park", DCA: "Disney California Adventure" }[D.park] || D.park),
+  head.append(el("b", {}, { DL: "Disneyland Park", DCA: "Disney California Adventure", MK: "Magic Kingdom", AK: "Animal Kingdom" }[D.park] || D.park),
               el("span", { class: "sub" }, `${D.time} · lines ${D.ratio.toFixed(2)}× typical`));
   const plan = el("div", { class: "card" });
   if (D.age == null) plan.append(el("div", { class: "warn" }, "No live data yet: waits are typical, not live."));
