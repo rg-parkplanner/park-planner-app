@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
 <title>Park planner</title>
 <script>window.__planHash = location.hash;  // before Telegram's script, which reads and may rewrite the hash</script>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -11,18 +12,12 @@
 <style>
 /* Telegram Mini App for the parkcollector day-of planner. Static: the plan arrives in the URL
    fragment (never sent to this host) and choices go back to the bot via WebApp.sendData. */
-:root {
-  --bg: var(--tg-theme-bg-color, #ffffff);
-  --fg: var(--tg-theme-text-color, #16202c);
-  --muted: var(--tg-theme-hint-color, #6b7686);
-  --card: var(--tg-theme-secondary-bg-color, #f2f4f7);
-  --accent: var(--tg-theme-button-color, #2f6fde);
-  --on-accent: var(--tg-theme-button-text-color, #ffffff);
+:root {  /* always light, whatever Telegram's or the phone's theme (owner's choice, 2026-11-09) */
+  --bg: #ffffff; --fg: #16202c; --muted: #6b7686; --card: #f2f4f7; --accent: #2f6fde; --on-accent: #ffffff;
+  color-scheme: light;
   --lo: #2e9b5e; --mid: #d99a1e; --hi: #d1493f; --off: #9aa3af;
   font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
-@media (prefers-color-scheme: dark) { :root:not([data-tg]) {
-  --bg: #12161c; --fg: #e8ecf1; --muted: #9aa3af; --card: #1c222b; color-scheme: dark; } }
 body { margin: 0; background: var(--bg); color: var(--fg); }
 .wrap { padding: 12px max(14px, env(safe-area-inset-left)) 28px max(14px, env(safe-area-inset-right));
   display: grid; gap: 12px; max-width: 560px; margin: 0 auto; }
@@ -89,7 +84,10 @@ a { color: var(--accent); }
   // initData is empty when a Mini App is opened from a keyboard button (our "Open planner"), so detect
   // Telegram by its platform instead; sendData works there.
   const inTelegram = !!(tg && tg.platform && tg.platform !== "unknown");
-  if (inTelegram) { document.documentElement.setAttribute("data-tg", ""); tg.ready(); tg.expand(); }
+  if (inTelegram) {
+    document.documentElement.setAttribute("data-tg", ""); tg.ready(); tg.expand();
+    try { tg.setHeaderColor("#ffffff"); tg.setBackgroundColor("#ffffff"); } catch (e) { /* older Telegram */ }
+  }
   const app = document.getElementById("app");
   const el = (tag, attrs = {}, text) => {
     const n = document.createElement(tag);
@@ -231,7 +229,7 @@ a { color: var(--accent); }
       return out;
     }) };
   }
-  const isDark = () => inTelegram ? tg.colorScheme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  const isDark = () => false;  // always light (see :root); darkStyle stays for a future dark option
   const hasMap = !!window.maplibregl;
   function newMap(div, pts, pad = 24) {  // pts: [[lat, lon], ...] to frame
     if (isDark()) document.documentElement.classList.add("dark");
