@@ -70,6 +70,7 @@ input[type=date] { font: inherit; padding: 8px; border-radius: 8px; border: 1px 
 .maplibregl-popup-anchor-top-right .maplibregl-popup-tip { align-self: flex-end; border-top: none; border-right: none; border-bottom-color: var(--bg); }
 .maplibregl-popup-anchor-left .maplibregl-popup-tip { align-self: center; border-left: none; border-right-color: var(--bg); }
 .maplibregl-popup-anchor-right .maplibregl-popup-tip { align-self: center; border-right: none; border-left-color: var(--bg); }
+.row.held { align-items: center; } .row.held span { flex: 1 1 auto; }
 .pin { border-radius: 50%; box-sizing: border-box; cursor: pointer; }
 .pin .lbl, .num { font: 600 11px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 .pin .lbl { position: absolute; bottom: 140%; left: 50%; transform: translateX(-50%); white-space: nowrap;
@@ -291,6 +292,8 @@ a { color: var(--accent); }
   }
 
   const R = D.rides;  // [name, lat, lon, wait, state, flags]
+  const btn = (label, fn, ghost) => { const b = el("button", ghost ? { class: "ghost" } : {}, label); b.onclick = fn; return b; };
+  const out = el("div", { id: "out" });
   const send = (cmd) => {
     if (inTelegram) { tg.sendData(cmd); return; }  // the bot replies with a fresh plan; Telegram closes the page
     out.textContent = "Send this to the bot: " + cmd;
@@ -312,6 +315,23 @@ a { color: var(--accent); }
     const ol = el("ol", { start: "2" });
     D.steps.slice(1).forEach((s) => ol.append(el("li", {}, s)));
     plan.append(ol);
+  }
+  // one tap for the step in front of you (the bot re-plans and replies)
+  const T = D.tap;
+  if (T) {
+    const box = el("div", { class: "row" });
+    if (T.k === "standby") box.append(btn(`Rode it: ${R[T.i][0]}`, () => send(`did ${R[T.i][0]}`)));
+    else if (T.k === "ll") box.append(btn(`Tapped in: ${R[T.i][0]}`, () => send(`used ${R[T.i][0]}`)));
+    else if (T.k === "break") box.append(btn(`${T.n} done`, () => send(`${T.w} done`)));
+    else if (T.k === "book") {
+      const bt = el("input", { type: "time", value: T.t || "", "aria-label": "Return time the app gave you" });
+      box.append(bt, btn(`I booked ${R[T.i][0]}`, () => {
+        if (!bt.value) { out.textContent = "Set the return time the app gave you."; return; }
+        send(`booked ${R[T.i][0]} ${bt.value}`);
+      }));
+      plan.append(box, el("div", { class: "sub" }, "Book it in the Disney app, then tap here. Change the time if the app gave you another one."));
+    }
+    if (T.k !== "book") plan.append(box);
   }
   const target = D.next != null ? R[D.next] : null;
   if (target) {
@@ -342,7 +362,14 @@ a { color: var(--accent); }
     plan.append(r1, r2, el("div", { class: "sub" },
       "Directions sends a map pin to the chat: tap it, then Directions. Use it if Open shows an error."));
   }
-  if (D.held.length) plan.append(el("div", { class: "sub" }, "Holding: " + D.held.map((h) => `${R[h[0]][0]} ${h[1]}–${h[2]}`).join("; ")));
+  if (D.held.length) {  // each booking you hold, with its own tap-in button
+    plan.append(el("div", { class: "sub" }, "Holding:"));
+    D.held.forEach((h) => {
+      const row = el("div", { class: "row held" });
+      row.append(el("span", {}, `${R[h[0]][0]} ${h[1]}–${h[2]}`), btn("Tapped in", () => send(`used ${R[h[0]][0]}`), true));
+      plan.append(row);
+    });
+  }
   if (D.nb) plan.append(el("div", { class: "sub" }, `Next Multi Pass booking opens ${D.nb}${D.held.length ? ", or when you tap in" : ""}.`));
   if (D.sold.length) plan.append(el("div", { class: "sub" }, "Multi Pass sold out today: " + D.sold.join(", ")));
 
@@ -395,27 +422,25 @@ a { color: var(--accent); }
 
   // what did you just do?
   const act = el("div", { class: "card" });
-  act.append(el("b", {}, "Where are you, what did you just do?"));
+  act.append(el("b", {}, "Something else? Pick a ride:"));
   const pick = el("select", { id: "ride", "aria-label": "Ride" });
   pick.append(el("option", { value: "" }, "Choose a ride (or tap it on the map)"));
   R.map((r, i) => [r, i]).sort((a, b) => a[0][0].localeCompare(b[0][0]))
     .forEach(([r, i]) => pick.append(el("option", { value: String(i) }, desc(r))));
   if (D.next != null) pick.value = String(D.next);
   const time = el("input", { type: "time", id: "ret", "aria-label": "Multi Pass return time" });
-  const btn = (label, fn, ghost) => { const b = el("button", ghost ? { class: "ghost" } : {}, label); b.onclick = fn; return b; };
   const chosen = () => pick.value === "" ? null : R[Number(pick.value)][0];
   const need = (fn) => () => { const n = chosen(); if (!n) { out.textContent = "Choose a ride first."; return; } fn(n); };
   const row1 = el("div", { class: "row" });
   row1.append(btn("Rode it", need((n) => send(`did ${n}`))), btn("Used Lightning Lane", need((n) => send(`used ${n}`))));
   const row2 = el("div", { class: "row" });
-  row2.append(time, btn("Booked Multi Pass", need((n) => {
+  row2.append(time, btn("Booked Multi Pass (or an advance pick)", need((n) => {
     if (!time.value) { out.textContent = "Set the return time on your Multi Pass first."; return; }
     send(`booked ${n} ${time.value}`);
   })));
   const row3 = el("div", { class: "row" });
   row3.append(btn("Skip ride", need((n) => send(`skip ${n}`)), true), btn("Lunch done", () => send("lunch done"), true),
               btn("Refresh plan", () => send("plan"), true));
-  const out = el("div", { id: "out" });
   act.append(pick, row1, row2, row3, out);
   pick.onchange = () => { out.textContent = pick.value === "" ? "" : desc(R[Number(pick.value)]); };
 
