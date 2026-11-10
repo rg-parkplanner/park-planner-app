@@ -66,6 +66,9 @@ input[type=date] { font: inherit; padding: 8px; border-radius: 8px; border: 1px 
 .maplibregl-popup-anchor-left .maplibregl-popup-tip { align-self: center; border-left: none; border-right-color: var(--bg); }
 .maplibregl-popup-anchor-right .maplibregl-popup-tip { align-self: center; border-right: none; border-left-color: var(--bg); }
 .row.held { align-items: center; } .row.held span { flex: 1 1 auto; }
+.row.nextrow { flex-wrap: nowrap; align-items: flex-start; } .row.nextrow .next { flex: 1 1 auto; min-width: 0; }
+ol li { display: flex; gap: 8px; align-items: flex-start; } ol li > span { flex: 1 1 auto; min-width: 0; }
+ol li button, .row.nextrow button { flex: none; padding: 4px 10px; font-size: 13px; width: auto; }
 .pin { border-radius: 50%; box-sizing: border-box; cursor: pointer; }
 .pin .lbl, .num { font: 600 11px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 .pin .lbl { position: absolute; bottom: 140%; left: 50%; transform: translateX(-50%); white-space: nowrap;
@@ -308,11 +311,30 @@ a { color: var(--accent); }
   const plan = el("div", { class: "card" });
   if (D.age == null) plan.append(el("div", { class: "warn" }, "No live data yet: waits are typical, not live."));
   else if (D.age > 15) plan.append(el("div", { class: "warn" }, `Live data is ${D.age} min old: waits may have moved.`));
-  plan.append(el("div", { class: "next" }, D.steps[0] || "Nothing left that fits before you leave."));
+  // each step can be skipped (rides and breaks; a held Lightning Lane isn't); the bot re-plans
+  const skipBtn = (i) => (D.skips || [])[i] ? btn("Skip", () => send(D.skips[i]), true) : null;
+  const first = el("div", { class: "row nextrow" });
+  first.append(el("div", { class: "next" }, D.steps[0] || "Nothing left that fits before you leave."));
+  if (skipBtn(0)) first.append(skipBtn(0));
+  plan.append(first);
   if (D.steps.length > 1) {
     const ol = el("ol", { start: "2" });
-    D.steps.slice(1).forEach((s) => ol.append(el("li", {}, s)));
+    D.steps.slice(1).forEach((s, j) => {
+      const li = el("li");
+      li.append(el("span", {}, s));
+      const b = skipBtn(j + 1);
+      if (b) li.append(b);
+      ol.append(li);
+    });
     plan.append(ol);
+  }
+  if ((D.skipped || []).length) {  // what's been skipped today, with a way back
+    plan.append(el("div", { class: "sub" }, "Skipped today:"));
+    D.skipped.forEach(([name, cmd]) => {
+      const row = el("div", { class: "row held" });
+      row.append(el("span", {}, name), btn("Put back", () => send(cmd), true));
+      plan.append(row);
+    });
   }
   // one tap for the step in front of you (the bot re-plans and replies)
   const T = D.tap;
