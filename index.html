@@ -66,6 +66,8 @@ input[type=date] { font: inherit; padding: 8px; border-radius: 8px; border: 1px 
 .maplibregl-popup-anchor-left .maplibregl-popup-tip { align-self: center; border-left: none; border-right-color: var(--bg); }
 .maplibregl-popup-anchor-right .maplibregl-popup-tip { align-self: center; border-right: none; border-left-color: var(--bg); }
 .row.held { align-items: center; } .row.held span { flex: 1 1 auto; }
+.stepend { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
+button.mini { flex: none; padding: 3px 9px; font-size: 12px; width: auto; }
 .row.nextrow { flex-wrap: nowrap; align-items: flex-start; } .row.nextrow .next { flex: 1 1 auto; min-width: 0; }
 ol li { display: flex; gap: 8px; align-items: flex-start; } ol li > span { flex: 1 1 auto; min-width: 0; }
 ol li button, .row.nextrow button { flex: none; padding: 4px 10px; font-size: 13px; width: auto; }
@@ -263,14 +265,28 @@ a { color: var(--accent); }
     I.notes.forEach(([label, text]) => { const n = el("div", { class: "sub" }); n.append(el("b", {}, label + ": "), document.createTextNode(text)); info.append(n); });
     if (I.replay) info.append(el("div", { class: "sub" }, I.replay));
     const list = el("div", { class: "card steps" });
-    I.steps.forEach(([t, k, name, wait]) => {
+    const isend = (cmd) => { if (inTelegram) tg.sendData(cmd); else list.append(el("div", { class: "sub" }, "Send this to the bot: " + cmd)); };
+    const ibtn = (label, cmd) => { const b = el("button", { class: "ghost mini" }, label); b.onclick = () => isend(cmd); return b; };
+    I.steps.forEach(([t, k, name, wait], i) => {
       const row = el("div", { class: "step" });
       const mid = el("div"); mid.append(el("span", { class: "k" }, KIND[k] || k), document.createTextNode(name));
       const chip = wait != null ? el("span", { class: "chip", style: `background:${wcol(wait)}` }, `${wait} min`)
                  : k === "L" ? el("span", { class: "chip", style: "background:var(--lo)" }, "~10 min") : el("span");
-      row.append(el("span", { class: "sub" }, t), mid, chip);
+      const end = el("div", { class: "stepend" });
+      end.append(chip);
+      const cmd = (I.skips || [])[i];  // skipped here = skipped on the park day too
+      if (cmd) end.append(ibtn("Skip", cmd));
+      row.append(el("span", { class: "sub" }, t), mid, end);
       list.append(row);
     });
+    if ((I.skipped || []).length) {
+      list.append(el("div", { class: "sub" }, "Skipped (also skipped on the day):"));
+      I.skipped.forEach(([name, cmd]) => {
+        const row = el("div", { class: "row held" });
+        row.append(el("span", {}, name), ibtn("Put back", cmd));
+        list.append(row);
+      });
+    }
     const parts = [ih, info, list];
     const pts = I.steps.filter((x) => x[4] != null);
     let imapDiv = null;
